@@ -152,7 +152,7 @@ export function findMatchingProducts(
   // Calculate similarity scores for all products
   const scoredProducts = allProducts
     .map((product) => calculateSimilarity(predictions, product))
-    .filter((item) => item?.score >= 100);
+    .filter((item) => item?.score > 80);
 
   console.log(
     "[ProductMatcher] Products with scores > 0:",
