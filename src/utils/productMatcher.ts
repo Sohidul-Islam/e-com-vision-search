@@ -1,5 +1,5 @@
-import { Product } from '@/data/products';
-import { Prediction } from './imageClassifier';
+import { Product } from "@/data/products";
+import { Prediction } from "./imageClassifier";
 
 interface MatchScore {
   product: Product;
@@ -7,14 +7,14 @@ interface MatchScore {
   matchedTags: string[];
 }
 
-function tokenizeClassName(className:string): string[] {
+function tokenizeClassName(className: string): string[] {
   const original = className.trim();
-  
+
   // Split by commas or spaces
   const parts = className
     .toLowerCase()
     .split(/[\s,]+/)
-    .map(s => s.trim())
+    .map((s) => s.trim())
     .filter(Boolean);
 
   // If original is not already in lowercase, add it at the beginning
@@ -25,37 +25,43 @@ function tokenizeClassName(className:string): string[] {
  * Calculate similarity score between image predictions and product
  * Higher probability predictions get exponentially more weight
  */
-function calculateSimilarity(predictions: Prediction[], product: Product): MatchScore {
+function calculateSimilarity(
+  predictions: Prediction[],
+  product: Product
+): MatchScore {
   let score = 0;
   const matchedTags: string[] = [];
 
   // Extract all prediction keywords with probability-based ranking
-  const predictionWords: { word: string; probability: number; rank: number }[] = [];
+  const predictionWords: { word: string; probability: number; rank: number }[] =
+    [];
   predictions.forEach((pred, index) => {
     const words = tokenizeClassName(pred.className);
-    words.forEach(word => {
-      if (word.length > 2) { // Ignore very short words
+    words.forEach((word) => {
+      if (word.length > 2) {
+        // Ignore very short words
         predictionWords.push({
           word,
           probability: pred.probability,
-          rank: index // Lower rank = higher priority (0 is highest)
+          rank: index, // Lower rank = higher priority (0 is highest)
         });
       }
     });
   });
 
   // Check for matches in product tags with probability-weighted scoring
-  product.tags.forEach(tag => {
+  product.tags.forEach((tag) => {
     const tagWords = tokenizeClassName(tag);
 
-    tagWords.forEach(tagWord => {
+    tagWords.forEach((tagWord) => {
       predictionWords.forEach(({ word: predWord, probability, rank }) => {
         // Calculate priority multiplier: top predictions get much higher weight
         // Rank 0 (highest): 5x multiplier
         // Rank 1: 4x multiplier
         // Rank 2: 3x multiplier
         // Rank 3+: 2x multiplier
-        const rankMultiplier = rank === 0 ? 5 : rank === 1 ? 4 : rank === 2 ? 3 : 2;
+        const rankMultiplier =
+          rank === 0 ? 5 : rank === 1 ? 4 : rank === 2 ? 3 : 2;
 
         // Exact match - heavily prioritize high probability predictions
         if (tagWord === predWord) {
@@ -65,7 +71,11 @@ function calculateSimilarity(predictions: Prediction[], product: Product): Match
           matchedTags.push(tag);
         }
         // Partial match (one word contains the other)
-        else if ((tagWord.includes(predWord) || predWord.includes(tagWord)) && tagWord.length > 3 && predWord.length > 3) {
+        else if (
+          (tagWord.includes(predWord) || predWord.includes(tagWord)) &&
+          tagWord.length > 3 &&
+          predWord.length > 3
+        ) {
           // Partial matches get lower base score but still weighted by probability and rank
           score += 10 * probability * rankMultiplier;
           if (!matchedTags.includes(tag)) {
@@ -78,9 +88,10 @@ function calculateSimilarity(predictions: Prediction[], product: Product): Match
 
   // Check for matches in tokenized product name with probability-weighted scoring
   const productNameWords = tokenizeClassName(product.name);
-  productNameWords.forEach(nameWord => {
+  productNameWords.forEach((nameWord) => {
     predictionWords.forEach(({ word: predWord, probability, rank }) => {
-      const rankMultiplier = rank === 0 ? 5 : rank === 1 ? 4 : rank === 2 ? 3 : 2;
+      const rankMultiplier =
+        rank === 0 ? 5 : rank === 1 ? 4 : rank === 2 ? 3 : 2;
 
       // Exact match in product name - high priority
       if (nameWord === predWord) {
@@ -90,7 +101,11 @@ function calculateSimilarity(predictions: Prediction[], product: Product): Match
         matchedTags.push(`name:${nameWord}`);
       }
       // Partial match in product name
-      else if ((nameWord.includes(predWord) || predWord.includes(nameWord)) && nameWord.length > 3 && predWord.length > 3) {
+      else if (
+        (nameWord.includes(predWord) || predWord.includes(nameWord)) &&
+        nameWord.length > 3 &&
+        predWord.length > 3
+      ) {
         score += 15 * probability * rankMultiplier;
         if (!matchedTags.includes(`name:${nameWord}`)) {
           matchedTags.push(`name:${nameWord}`);
@@ -102,18 +117,22 @@ function calculateSimilarity(predictions: Prediction[], product: Product): Match
   // Check category match - prioritize high probability predictions
   predictionWords.forEach(({ word, probability, rank }) => {
     const rankMultiplier = rank === 0 ? 5 : rank === 1 ? 4 : rank === 2 ? 3 : 2;
-    if (product.category.toLowerCase().includes(word) || word.includes(product.category.toLowerCase())) {
+    if (
+      product.category.toLowerCase().includes(word) ||
+      word.includes(product.category.toLowerCase())
+    ) {
       score += 5 * probability * rankMultiplier;
     }
   });
 
+  console.log("Final", { score, product });
+
   return {
     product,
     score,
-    matchedTags: [...new Set(matchedTags)]
+    matchedTags: [...new Set(matchedTags)],
   };
 }
-
 
 /**
  * Find matching products based on image predictions
@@ -123,48 +142,55 @@ export function findMatchingProducts(
   allProducts: Product[],
   limit: number = 50
 ): Product[] {
-  console.log('[ProductMatcher] Finding matching products...');
-  console.log('[ProductMatcher] Predictions:', predictions);
-  console.log('[ProductMatcher] Total products to scan:', allProducts.length);
-  console.log('[ProductMatcher] Limit:', limit);
+  console.log("[ProductMatcher] Finding matching products...");
+  console.log("[ProductMatcher] Predictions:", predictions);
+  console.log("[ProductMatcher] Total products to scan:", allProducts.length);
+  console.log("[ProductMatcher] Limit:", limit);
 
-  console.time('[ProductMatcher] Matching time');
+  console.time("[ProductMatcher] Matching time");
 
   // Calculate similarity scores for all products
-  const scoredProducts = allProducts.map(product =>
-    calculateSimilarity(predictions, product)
-  );
+  const scoredProducts = allProducts
+    .map((product) => calculateSimilarity(predictions, product))
+    .filter((item) => item?.score >= 100);
 
-  console.log('[ProductMatcher] Products with scores > 0:', scoredProducts.filter(p => p.score > 0).length);
+  console.log(
+    "[ProductMatcher] Products with scores > 0:",
+    scoredProducts.filter((p) => p.score > 0).length
+  );
 
   // Log top 10 scores for debugging
   const topScores = scoredProducts
     .sort((a, b) => b.score - a.score)
     .slice(0, 10)
-    .map(item => ({
+    .map((item) => ({
       name: item.product.name,
       score: item.score.toFixed(2),
       matchedTags: item.matchedTags,
-      productTags: item.product.tags
+      productTags: item.product.tags,
     }));
-  console.log('[ProductMatcher] Top 10 scored products:', topScores);
+  console.log("[ProductMatcher] Top 10 scored products:", topScores);
 
   // Sort by score (highest first) and return top matches
   const sortedProducts = scoredProducts
-    .filter(item => item.score > 0) // Only return products with some match
+    .filter((item) => item.score > 0) // Only return products with some match
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
-    .map(item => item.product);
+    .map((item) => item.product);
 
-  console.timeEnd('[ProductMatcher] Matching time');
+  console.timeEnd("[ProductMatcher] Matching time");
 
   // If no matches found, return all products
   if (sortedProducts.length === 0) {
-    console.log('[ProductMatcher] No matches found, returning all products');
+    console.log("[ProductMatcher] No matches found, returning all products");
     return allProducts.slice(0, limit);
   }
 
-  console.log('[ProductMatcher] Returning', sortedProducts.length, 'matched products');
+  console.log(
+    "[ProductMatcher] Returning",
+    sortedProducts.length,
+    "matched products"
+  );
   return sortedProducts;
 }
 
@@ -175,13 +201,13 @@ export function filterProducts(
   products: Product[],
   searchQuery: string
 ): Product[] {
-  if (!searchQuery || searchQuery.trim() === '') {
+  if (!searchQuery || searchQuery.trim() === "") {
     return products;
   }
 
   const query = searchQuery.toLowerCase().trim();
 
-  return products.filter(product => {
+  return products.filter((product) => {
     // Search in product name
     if (product.name.toLowerCase().includes(query)) {
       return true;
@@ -193,7 +219,7 @@ export function filterProducts(
     }
 
     // Search in tags
-    if (product.tags.some(tag => tag.toLowerCase().includes(query))) {
+    if (product.tags.some((tag) => tag.toLowerCase().includes(query))) {
       return true;
     }
 
@@ -213,17 +239,17 @@ export function filterByCategory(
   products: Product[],
   category: string
 ): Product[] {
-  if (!category || category === 'all') {
+  if (!category || category === "all") {
     return products;
   }
 
-  return products.filter(product => product.category === category);
+  return products.filter((product) => product.category === category);
 }
 
 /**
  * Get unique categories from products
  */
 export function getCategories(products: Product[]): string[] {
-  const categories = new Set(products.map(p => p.category));
-  return ['all', ...Array.from(categories).sort()];
+  const categories = new Set(products.map((p) => p.category));
+  return ["all", ...Array.from(categories).sort()];
 }
